@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stddef.h>
-#include "property_types.h"
+#include "property.h"
 #include "save_restore.h"
 
 /** Enum for the type of an interface object. See Section 2.2 of knx:3/7/3 */
@@ -47,7 +47,10 @@ enum ObjectType
     OT_RESERVED = 12,
 
     /** File Server Object */
-    OT_FILE_SERVER = 13
+    OT_FILE_SERVER = 13,
+
+    /** RF Medium Object */
+    OT_RF_MEDIUM = 19
 };
 
 /**
@@ -59,7 +62,7 @@ class InterfaceObject : public SaveRestore
     /**
      * Destructor
      */
-    virtual ~InterfaceObject() {}
+    virtual ~InterfaceObject();
     /**
      * Read a property of the interface object. See section 4.8.4.2 of @cite knx:3/4/1.
      * 
@@ -72,7 +75,7 @@ class InterfaceObject : public SaveRestore
      * 
      * @param[out] data The requested data of the property.
      */
-    virtual void readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data);
+    virtual void readProperty(PropertyID id, uint16_t start, uint8_t& count, uint8_t* data);
     /**
      * Write property of the interface object. If the interface object does not have the property this 
      * method does nothing. See section 4.8.4.4 of @cite knx:3/4/1.
@@ -81,11 +84,12 @@ class InterfaceObject : public SaveRestore
      * 
      * @param start (for properties with multiple values) at which element should we start
      * 
-     * @param count how many values should be written.
+     * @param[in, out] count how many values should be written. If there is a problem (e.g. property does not exist)
+     *        this value is set to 0.
      * 
-     * @param data The data that should be written.
+     * @param[in] data The data that should be written.
      */
-    virtual void writeProperty(PropertyID id, uint8_t start, uint8_t* data, uint8_t count);
+    virtual void writeProperty(PropertyID id, uint16_t start, uint8_t* data, uint8_t& count);
     /**
      * Gets the size of of property in bytes.
      * 
@@ -112,17 +116,58 @@ class InterfaceObject : public SaveRestore
      * 
      * @param[out] access the ::AccessLevel necessary to read/write the property. 
      */
-
+    // TODO: remove first version after complete property refactoring
     void readPropertyDescription(uint8_t& propertyId, uint8_t& propertyIndex, bool& writeEnable, uint8_t& type, uint16_t& numberOfElements, uint8_t& access);
+    void readPropertyDescription2(uint8_t& propertyId, uint8_t& propertyIndex, bool& writeEnable, uint8_t& type, uint16_t& numberOfElements, uint8_t& access);
+
+    /**
+     * Gets property with PropertyID id if it exists and nullptr otherwise.
+     */
+    Property* property(PropertyID id);
+
+    template <typename T>
+    T propertyValue(PropertyID id)
+    {
+        const Property* prop = property(id);
+
+        T value = 0;
+        prop->read(value);
+        return value;
+    }
+    
+    template <typename T>
+    void propertyValue(PropertyID id, T value)
+    {
+        Property* prop = property(id);
+        prop->write(value);
+    }
+
+    const uint8_t* propertyData(PropertyID id);
+    /**
+     * Gets const property with PropertyID id if it exists and nullptr otherwise.
+     */
+    const Property* property(PropertyID id) const;
+
+    virtual uint8_t* save(uint8_t* buffer) override;
+    virtual const uint8_t* restore(const uint8_t* buffer) override;
+    virtual uint16_t saveSize() override;
 
   protected:
     /**
      * Returns the number of properties the interface object has.
      */
-    virtual uint8_t propertyCount();
+    virtual uint8_t propertyDescriptionCount();
     /**
      * Returns a pointer to the first PropertyDescription of the interface object. 
      * This is used by readPropertyDescription() together with propertyCount().
      */
     virtual PropertyDescription* propertyDescriptions();
+
+    /**
+     * Intializes the Property-array the the supplied values.
+     */
+    virtual void initializeProperties(size_t propertiesSize, Property** properties);
+
+    Property** _properties = nullptr;
+    uint8_t _propertyCount = 0;
 };

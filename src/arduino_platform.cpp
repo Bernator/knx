@@ -2,36 +2,13 @@
 #include <knx/bits.h>
 
 #include <Arduino.h>
+#include <SPI.h>
 
 Stream* ArduinoPlatform::SerialDebug = &Serial;
 
 ArduinoPlatform::ArduinoPlatform(HardwareSerial* knxSerial) : _knxSerial(knxSerial)
 {
 }
-
-uint32_t ArduinoPlatform::currentIpAddress()
-{
-    // not needed
-    return 0;
-}
-
-uint32_t ArduinoPlatform::currentSubnetMask()
-{
-    // not needed
-    return 0;
-}
-
-uint32_t ArduinoPlatform::currentDefaultGateway()
-{
-    // not needed
-    return 0;
-}
-
-void ArduinoPlatform::macAddress(uint8_t * addr)
-{
-    // not needed
-}
-
 
 void ArduinoPlatform::fatalError()
 {
@@ -45,27 +22,6 @@ void ArduinoPlatform::fatalError()
             digitalWrite(LED_BUILTIN, LOW);
 #endif
     }
-}
-
-void ArduinoPlatform::setupMultiCast(uint32_t addr, uint16_t port)
-{
-    //not needed
-}
-
-void ArduinoPlatform::closeMultiCast()
-{
-    //not needed
-}
-
-bool ArduinoPlatform::sendBytes(uint8_t * buffer, uint16_t len)
-{
-    //not needed
-}
-
-int ArduinoPlatform::readBytes(uint8_t * buffer, uint16_t maxLen)
-{
-    //not needed
-    return 0;
 }
 
 void ArduinoPlatform::knxUart( HardwareSerial* serial )
@@ -135,6 +91,24 @@ size_t ArduinoPlatform::readBytesUart(uint8_t *buffer, size_t length)
     }
     //printHex("p>", buffer, length);
     return length;
+}
+
+void ArduinoPlatform::setupSpi()
+{
+    SPI.begin();
+    SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+}
+
+void ArduinoPlatform::closeSpi()
+{
+    SPI.endTransaction();
+    SPI.end();
+}
+
+int ArduinoPlatform::readWriteSpi(uint8_t *data, size_t len)
+{
+    SPI.transfer(data, len);
+    return 0;
 }
 
 void print(const char* s)

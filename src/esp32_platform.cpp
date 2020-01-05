@@ -42,9 +42,7 @@ void Esp32Platform::restart()
 
 void Esp32Platform::setupMultiCast(uint32_t addr, uint16_t port)
 {
-    _mulitcastAddr = htonl(addr);
-    _mulitcastPort = port;
-    IPAddress mcastaddr(_mulitcastAddr);
+    IPAddress mcastaddr(htonl(addr));
     
     Serial.printf("setup multicast addr: %s port: %d ip: %s\n", mcastaddr.toString().c_str(), port,
         WiFi.localIP().toString().c_str());
@@ -57,7 +55,7 @@ void Esp32Platform::closeMultiCast()
     _udp.stop();
 }
 
-bool Esp32Platform::sendBytes(uint8_t * buffer, uint16_t len)
+bool Esp32Platform::sendBytesMultiCast(uint8_t * buffer, uint16_t len)
 {
     //printHex("<- ",buffer, len);
     int result = 0;
@@ -67,7 +65,7 @@ bool Esp32Platform::sendBytes(uint8_t * buffer, uint16_t len)
     return true;
 }
 
-int Esp32Platform::readBytes(uint8_t * buffer, uint16_t maxLen)
+int Esp32Platform::readBytesMultiCast(uint8_t * buffer, uint16_t maxLen)
 {
     int len = _udp.parsePacket();
     if (len == 0)

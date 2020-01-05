@@ -1,8 +1,11 @@
 #pragma once
 
+#include "config.h"
+#ifdef USE_IP
 #include "bau_systemB.h"
 #include "ip_parameter_object.h"
 #include "ip_data_link_layer.h"
+#include "cemi_server_object.h"
 
 class Bau57B0 : public BauSystemB
 {
@@ -11,11 +14,15 @@ class Bau57B0 : public BauSystemB
 
   protected:
     InterfaceObject* getInterfaceObject(uint8_t idx);
-    uint8_t* descriptor();
+    InterfaceObject* getInterfaceObject(ObjectType objectType, uint8_t objectInstance);
     DataLinkLayer& dataLinkLayer();
 
   private:
     IpParameterObject _ipParameters;
     IpDataLinkLayer _dlLayer;
-    uint8_t _descriptor[2] = {0x57, 0xb0};
+#ifdef USE_CEMI_SERVER
+    CemiServer _cemiServer;
+    CemiServerObject _cemiServerObject;
+#endif
 };
+#endif

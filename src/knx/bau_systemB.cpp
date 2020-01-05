@@ -1,9 +1,18 @@
 #include "bau_systemB.h"
+#include "bits.h"
 #include <string.h>
 #include <stdio.h>
 
-BauSystemB::BauSystemB(Platform& platform): _memory(platform), _addrTable(platform),
-    _assocTable(platform), _groupObjTable(platform), _appProgram(platform),
+enum NmReadSerialNumberType
+{
+    NM_Read_SerialNumber_By_ProgrammingMode = 0x01,
+    NM_Read_SerialNumber_By_ExFactoryState = 0x02,
+    NM_Read_SerialNumber_By_PowerReset = 0x03,
+    NM_Read_SerialNumber_By_ManufacturerSpecific = 0xFE,
+};
+
+BauSystemB::BauSystemB(Platform& platform): _memory(platform, _deviceObj), _addrTable(_memory),
+    _assocTable(_memory), _groupObjTable(_memory), _appProgram(_memory),
     _platform(platform), _appLayer(_assocTable, *this),
     _transLayer(_appLayer, _addrTable), _netLayer(_transLayer)
 {
@@ -21,6 +30,7 @@ void BauSystemB::loop()
     dataLinkLayer().loop();
     _transLayer.loop();
     sendNextGroupTelegram();
+    nextRestartState();
 }
 
 bool BauSystemB::enabled()
@@ -132,15 +142,16 @@ void BauSystemB::deviceDescriptorReadIndication(Priority priority, HopCountType 
 {
     if (descriptorType != 0)
         descriptorType = 0x3f;
-
-    _appLayer.deviceDescriptorReadResponse(AckRequested, priority, hopType, asap, descriptorType, descriptor());
+    
+    uint8_t data[2];
+    pushWord(_deviceObj.maskVersion(), data);
+    _appLayer.deviceDescriptorReadResponse(AckRequested, priority, hopType, asap, descriptorType, data);
 }
 
 void BauSystemB::memoryWriteIndication(Priority priority, HopCountType hopType, uint16_t asap, uint8_t number,
     uint16_t memoryAddress, uint8_t * data)
 {
-    memcpy(_platform.memoryReference() + memoryAddress, data, number);
-    _memory.memoryModified();
+    _memory.writeMemory(memoryAddress, number, data);
 
     if (_deviceObj.verifyMode())
         memoryReadIndication(priority, hopType, asap, number, memoryAddress);
@@ -150,7 +161,7 @@ void BauSystemB::memoryReadIndication(Priority priority, HopCountType hopType, u
     uint16_t memoryAddress)
 {
     _appLayer.memoryReadResponse(AckRequested, priority, hopType, asap, number, memoryAddress,
-        _platform.memoryReference() + memoryAddress);
+        _memory.toAbsolute(memoryAddress));
 }
 
 void BauSystemB::restartRequestIndication(Priority priority, HopCountType hopType, uint16_t asap)
@@ -168,13 +179,12 @@ void BauSystemB::authorizeIndication(Priority priority, HopCountType hopType, ui
 void BauSystemB::userMemoryReadIndication(Priority priority, HopCountType hopType, uint16_t asap, uint8_t number, uint32_t memoryAddress)
 {
     _appLayer.userMemoryReadResponse(AckRequested, priority, hopType, asap, number, memoryAddress,
-        _platform.memoryReference() + memoryAddress);
+        _memory.toAbsolute(memoryAddress));
 }
 
 void BauSystemB::userMemoryWriteIndication(Priority priority, HopCountType hopType, uint16_t asap, uint8_t number, uint32_t memoryAddress, uint8_t* data)
 {
-    memcpy(_platform.memoryReference() + memoryAddress, data, number);
-    _memory.memoryModified();
+    _memory.writeMemory(memoryAddress, number, data);
 
     if (_deviceObj.verifyMode())
         userMemoryReadIndication(priority, hopType, asap, number, memoryAddress);
@@ -209,7 +219,7 @@ void BauSystemB::propertyValueReadIndication(Priority priority, HopCountType hop
     uint8_t propertyId, uint8_t numberOfElements, uint16_t startIndex)
 {
     uint8_t size = 0;
-    uint32_t elementCount = numberOfElements;
+    uint8_t elementCount = numberOfElements;
     InterfaceObject* obj = getInterfaceObject(objectIndex);
     if (obj)
     {
@@ -222,6 +232,10 @@ void BauSystemB::propertyValueReadIndication(Priority priority, HopCountType hop
     uint8_t data[size];
     if(obj)
         obj->readProperty((PropertyID)propertyId, startIndex, elementCount, data);
+    
+    if (elementCount == 0)
+        size = 0;
+    
     _appLayer.propertyValueReadResponse(AckRequested, priority, hopType, asap, objectIndex, propertyId, elementCount,
         startIndex, data, size);
 }
@@ -293,8 +307,130 @@ void BauSystemB::addSaveRestore(SaveRestore* obj)
     _memory.addSaveRestore(obj);
 }
 
-
-void BauSystemB::restartRequest(uint16_t asap)
+bool BauSystemB::restartRequest(uint16_t asap)
 {
-    _appLayer.restartRequest(AckRequested, LowPriority, NetworkLayerParameter, asap);
+    if (_appLayer.isConnected())
+        return false;
+    _restartState = Connecting; // order important, has to be set BEFORE connectRequest
+    _appLayer.connectRequest(asap, SystemPriority);
+    _appLayer.deviceDescriptorReadRequest(AckRequested, SystemPriority, NetworkLayerParameter, asap, 0);
+    return true;
+}
+
+void BauSystemB::connectConfirm(uint16_t tsap)
+{
+    if (_restartState == Connecting && tsap >= 0)
+    {
+        /* restart connection is confirmed, go to the next state */
+        _restartState = Connected;
+        _restartDelay = millis();
+    }
+    else
+    {
+        _restartState = Idle;
+    }
+}
+
+void BauSystemB::nextRestartState()
+{
+    switch (_restartState)
+    {
+        case Idle:
+            /* inactive state, do nothing */
+            break;
+        case Connecting:
+            /* wait for connection, we do nothing here */
+            break;
+        case Connected:
+            /* connection confirmed, we send restartRequest, but we wait a moment (sending ACK etc)... */
+            if (millis() - _restartDelay > 30)
+            {
+                _appLayer.restartRequest(AckRequested, SystemPriority, NetworkLayerParameter);
+                _restartState = Restarted;
+                _restartDelay = millis();
+            }
+            break;
+        case Restarted:
+            /* restart is finished, we send a discommect */
+            if (millis() - _restartDelay > 30)
+            {
+                _appLayer.disconnectRequest(SystemPriority);
+                _restartState = Idle;
+            }
+        default:
+            break;
+    }
+}
+
+void BauSystemB::systemNetworkParameterReadIndication(Priority priority, HopCountType hopType, uint16_t objectType,
+                                                      uint16_t propertyId, uint8_t* testInfo, uint16_t testInfoLength)
+{
+    uint8_t operand;
+
+    popByte(operand, testInfo + 1); // First byte (+ 0) contains only 4 reserved bits (0)
+
+    // See KNX spec. 3.5.2 p.33 (Management Procedures: Procedures with A_SystemNetworkParameter_Read)
+    switch((NmReadSerialNumberType)operand)
+    {
+        case NM_Read_SerialNumber_By_ProgrammingMode: // NM_Read_SerialNumber_By_ProgrammingMode
+            // Only send a reply if programming mode is on
+            if (_deviceObj.progMode() && (objectType == OT_DEVICE) && (propertyId == PID_SERIAL_NUMBER))
+            {
+                // Send reply. testResult data is KNX serial number
+                _appLayer.systemNetworkParameterReadResponse(priority, hopType, objectType, propertyId,
+                                                             testInfo, testInfoLength, (uint8_t*)_deviceObj.propertyData(PID_SERIAL_NUMBER), 6);
+            }
+        break;
+
+        case NM_Read_SerialNumber_By_ExFactoryState: // NM_Read_SerialNumber_By_ExFactoryState
+        break;
+
+        case NM_Read_SerialNumber_By_PowerReset: // NM_Read_SerialNumber_By_PowerReset
+        break;
+
+        case NM_Read_SerialNumber_By_ManufacturerSpecific: // Manufacturer specific use of A_SystemNetworkParameter_Read
+        break;
+    }
+}
+
+void BauSystemB::propertyValueRead(ObjectType objectType, uint8_t objectInstance, uint8_t propertyId,
+                                   uint8_t &numberOfElements, uint16_t startIndex,
+                                   uint8_t **data, uint32_t &length)
+{
+    uint32_t size = 0;
+    uint8_t elementCount = numberOfElements;
+
+    InterfaceObject* obj = getInterfaceObject(objectType, objectInstance);
+
+    if (obj)
+    {
+        uint8_t elementSize = obj->propertySize((PropertyID)propertyId);
+        size = elementSize * numberOfElements;
+        *data = new uint8_t [size];
+        obj->readProperty((PropertyID)propertyId, startIndex, elementCount, *data);
+    }
+    else
+    {
+        elementCount = 0;
+        *data = nullptr;
+    }
+
+    numberOfElements = elementCount;
+    length = size;
+}
+
+void BauSystemB::propertyValueWrite(ObjectType objectType, uint8_t objectInstance, uint8_t propertyId,
+                                    uint8_t &numberOfElements, uint16_t startIndex,
+                                    uint8_t* data, uint32_t length)
+{
+    InterfaceObject* obj =  getInterfaceObject(objectType, objectInstance);
+    if(obj)
+        obj->writeProperty((PropertyID)propertyId, startIndex, data, numberOfElements);
+    else 
+        numberOfElements = 0;
+}
+
+Memory& BauSystemB::memory()
+{
+    return _memory;
 }

@@ -1,5 +1,5 @@
 #include "tpuart_data_link_layer.h"
-
+#ifdef USE_TP
 #include "bits.h"
 #include "platform.h"
 #include "device_object.h"
@@ -364,7 +364,10 @@ void TpUartDataLinkLayer::loop()
 bool TpUartDataLinkLayer::sendFrame(CemiFrame& frame)
 {
     if (!_enabled)
+    {
+        dataConReceived(frame, false);
         return false;
+    }
 
     addFrameTxQueue(frame);
     return true;
@@ -533,3 +536,4 @@ void TpUartDataLinkLayer::loadNextTxFrame()
     }
     delete tx_frame;
 }
+#endif

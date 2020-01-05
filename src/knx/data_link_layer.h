@@ -1,16 +1,25 @@
 #pragma once
 
+#include "config.h"
+
 #include <stdint.h>
 #include "device_object.h"
 #include "address_table_object.h"
 #include "knx_types.h"
 #include "network_layer.h"
+#include "cemi_server.h"
 
 class DataLinkLayer
 {
   public:
     DataLinkLayer(DeviceObject& devObj, AddressTableObject& addrTab, NetworkLayer& layer,
                   Platform& platform);
+
+#ifdef USE_CEMI_SERVER
+    // from tunnel
+    void cemiServer(CemiServer& cemiServer);
+    void dataRequestFromTunnel(CemiFrame& frame);
+#endif
 
     // from network layer
     void dataRequest(AckType ack, AddressType addrType, uint16_t destinationAddr, FrameFormat format,
@@ -23,11 +32,14 @@ class DataLinkLayer
   protected:
     void frameRecieved(CemiFrame& frame);
     void dataConReceived(CemiFrame& frame, bool success);
-    bool sendTelegram(NPDU& npdu, AckType ack, uint16_t destinationAddr, AddressType addrType, FrameFormat format, Priority priority);
+    bool sendTelegram(NPDU& npdu, AckType ack, uint16_t destinationAddr, AddressType addrType, FrameFormat format, Priority priority, SystemBroadcast systemBroadcast);
     virtual bool sendFrame(CemiFrame& frame) = 0;
     uint8_t* frameData(CemiFrame& frame);
     DeviceObject& _deviceObject;
     AddressTableObject& _groupAddressTable;
     NetworkLayer& _networkLayer;
     Platform& _platform;
+#ifdef USE_CEMI_SERVER
+    CemiServer* _cemiServer;
+#endif    
 };

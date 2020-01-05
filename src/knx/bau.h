@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "knx_types.h"
+#include "interface_object.h"
 
 class BusAccessUnit
 {
@@ -25,14 +26,15 @@ class BusAccessUnit
     virtual void individualAddressReadAppLayerConfirm(HopCountType hopType, uint16_t individualAddress);
     virtual void individualAddressSerialNumberReadLocalConfirm(AckType ack, HopCountType hopType,
                                                                uint8_t* serialNumber, bool status);
-    virtual void individualAddressSerialNumberReadIndication(HopCountType hopType, uint8_t* serialNumber);
+    virtual void individualAddressSerialNumberReadIndication(Priority priority, HopCountType hopType, uint8_t* knxSerialNumber);
     virtual void individualAddressSerialNumberReadResponseConfirm(AckType ack, HopCountType hopType,
                                                                   uint8_t* serialNumber, uint16_t domainAddress, bool status);
     virtual void individualAddressSerialNumberReadAppLayerConfirm(HopCountType hopType, uint8_t* serialNumber,
                                                                   uint16_t individualAddress, uint16_t domainAddress);
     virtual void individualAddressSerialNumberWriteLocalConfirm(AckType ack, HopCountType hopType, uint8_t* serialNumber,
                                                                 uint16_t newaddress, bool status);
-    virtual void individualAddressSerialNumberWriteIndication(HopCountType hopType, uint8_t* serialNumber, uint16_t newaddress);
+    virtual void individualAddressSerialNumberWriteIndication(Priority priority, HopCountType hopType, uint16_t newIndividualAddress,
+                                                              uint8_t* knxSerialNumber);
     virtual void deviceDescriptorReadLocalConfirm(AckType ack, Priority priority, HopCountType hopType, uint16_t asap,
                                                   uint8_t descriptorType, bool status);
     virtual void deviceDescriptorReadIndication(Priority priority, HopCountType hopType, uint16_t asap, uint8_t descriptorType);
@@ -108,4 +110,20 @@ class BusAccessUnit
     virtual void keyWriteResponseConfirm(AckType ack, Priority priority, HopCountType hopType, uint16_t asap, uint8_t level,
                                          bool status);
     virtual void keyWriteAppLayerConfirm(Priority priority, HopCountType hopType, uint16_t asap, uint8_t level);
+    virtual void connectConfirm(uint16_t destination);
+    virtual void systemNetworkParameterReadIndication(Priority priority, HopCountType hopType, uint16_t objectType,
+                                                      uint16_t propertyId, uint8_t* testInfo, uint16_t testInfoLength);
+
+    virtual void domainAddressSerialNumberWriteIndication(Priority priority, HopCountType hopType, const uint8_t* rfDoA,
+                                                          const uint8_t* knxSerialNumber);
+
+    virtual void domainAddressSerialNumberReadIndication(Priority priority, HopCountType hopType, const uint8_t* knxSerialNumber);
+
+    virtual void propertyValueRead(ObjectType objectType, uint8_t objectInstance, uint8_t propertyId,
+                                   uint8_t& numberOfElements, uint16_t startIndex,
+                                   uint8_t** data, uint32_t& length);
+
+    virtual void propertyValueWrite(ObjectType objectType, uint8_t objectInstance, uint8_t propertyId,
+                                    uint8_t& numberOfElements, uint16_t startIndex,
+                                    uint8_t* data, uint32_t length);
 };
