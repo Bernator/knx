@@ -7,7 +7,7 @@
 class Bau57B0 : public BauSystemB
 {
   public:
-    Bau57B0(Platform& platform);
+    Bau57B0(Platform& platform, uint8_t instanceID);
 
   protected:
     InterfaceObject* getInterfaceObject(uint8_t idx);

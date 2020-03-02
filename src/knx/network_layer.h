@@ -9,7 +9,7 @@ class DataLinkLayer;
 class NetworkLayer
 {
   public:
-    NetworkLayer(TransportLayer& layer);
+    NetworkLayer(TransportLayer& layer,uint8_t instanceID);
 
     void dataLinkLayer(DataLinkLayer& layer);
     uint8_t hopCount() const;
@@ -35,4 +35,5 @@ class NetworkLayer
     uint8_t _hopCount = 6;
     DataLinkLayer* _dataLinkLayer = 0;
     TransportLayer& _transportLayer;
+    uint8_t _instanceID = 255;
 };

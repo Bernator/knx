@@ -1,4 +1,6 @@
 #pragma once
+#ifndef KNX_STACK_SRC_KNX_PLATFORM_H_
+#define KNX_STACK_SRC_KNX_PLATFORM_H_
 
 #include <stdint.h>
 #include <stddef.h>
@@ -118,3 +120,5 @@ class Platform
   protected:
     uint8_t* _memoryReference = 0;
 };
+
+#endif //KNX_STACK_SRC_KNX_PLATFORM_H_

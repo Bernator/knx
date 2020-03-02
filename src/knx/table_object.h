@@ -1,7 +1,7 @@
 #pragma once
 
 #include "interface_object.h"
-#include "platform.h"
+
 
 /**
  * This class provides common functionality for interface objects that are configured by ETS with MemorWrite.
@@ -13,7 +13,7 @@ public:
      * The constuctor.
      * @param platform the Platform on which the software runs. The class uses the memory management features of Platform.
      */
-    TableObject(Platform& platform);
+    TableObject();
     virtual void readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data);
     virtual void writeProperty(PropertyID id, uint8_t start, uint8_t* data, uint8_t count);
     virtual uint8_t propertySize(PropertyID id);
@@ -50,8 +50,6 @@ protected:
      * Set the reason for a state change failure.
      */
     void errorCode(ErrorCode errorCode);
-
-    Platform& _platform;
   private:
     uint32_t tableReference();
     bool allocTable(uint32_t size, bool doFill, uint8_t fillByte);

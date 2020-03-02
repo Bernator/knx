@@ -4,11 +4,12 @@
 
 using namespace std;
 
-Bau07B0::Bau07B0(Platform& platform)
-    : BauSystemB(platform),
-      _dlLayer(_deviceObj, _addrTable, _netLayer, _platform)
+Bau07B0::Bau07B0(uint8_t instanceID)
+    : BauSystemB(instanceID),
+      _instanceContainer(_deviceObj, _addrTable, _netLayer, instanceID)
 {
-    _netLayer.dataLinkLayer(_dlLayer);
+    _netLayer.dataLinkLayer(commondlLayer);
+    commondlLayer.addInstance(&_instanceContainer);
 }
 
 InterfaceObject* Bau07B0::getInterfaceObject(uint8_t idx)
@@ -39,5 +40,5 @@ uint8_t* Bau07B0::descriptor()
 
 DataLinkLayer& Bau07B0::dataLinkLayer()
 {
-    return _dlLayer;
+    return commondlLayer;
 }

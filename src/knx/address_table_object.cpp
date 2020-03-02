@@ -6,8 +6,7 @@
 using namespace std;
 
 
-AddressTableObject::AddressTableObject(Platform& platform)
-    : TableObject(platform)
+AddressTableObject::AddressTableObject()
 {
 
 }
@@ -79,6 +78,7 @@ void AddressTableObject::beforeStateChange(LoadState& newState)
     _groupAddresses = (uint16_t*)data();
 }
 
+
 static PropertyDescription _propertyDescriptions[] =
 {
     { PID_OBJECT_TYPE, false, PDT_UNSIGNED_INT, 1, ReadLv3 | WriteLv0 },
@@ -88,6 +88,7 @@ static PropertyDescription _propertyDescriptions[] =
 };
 
 static uint8_t _propertyCount = sizeof(_propertyDescriptions) / sizeof(PropertyDescription);
+
 
 uint8_t AddressTableObject::propertyCount()
 {

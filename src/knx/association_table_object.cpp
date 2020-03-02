@@ -6,8 +6,7 @@
 using namespace std;
 
 
-AssociationTableObject::AssociationTableObject(Platform& platform)
-    : TableObject(platform)
+AssociationTableObject::AssociationTableObject()
 {
 
 }

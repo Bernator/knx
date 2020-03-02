@@ -3,7 +3,7 @@
 #include "knx/bits.h"
 
 #ifdef ARDUINO_ARCH_SAMD
-KnxFacade<SamdPlatform, Bau07B0> knx;
+//KnxFacade<SamdPlatform, Bau07B0> knx;
 #define ICACHE_RAM_ATTR
 #elif ARDUINO_ARCH_ESP8266
 KnxFacade<EspPlatform, Bau57B0> knx;
@@ -21,7 +21,7 @@ ICACHE_RAM_ATTR void buttonUp()
 {
     #ifndef __linux__
     if (millis() - lastpressed > 200){
-        knx._toogleProgMode = true;
+ //       knx._toogleProgMode = true;
         lastpressed = millis();
     }
     #endif

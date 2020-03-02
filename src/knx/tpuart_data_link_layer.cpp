@@ -1,7 +1,7 @@
 #include "tpuart_data_link_layer.h"
 
 #include "bits.h"
-#include "platform.h"
+#include "globalPlatform.h"
 #include "device_object.h"
 #include "address_table_object.h"
 #include "cemi_frame.h"
@@ -84,6 +84,8 @@
 #define CONFIRM_TIMEOUT       500  //milli seconds
 #define RESET_TIMEOUT         100 //milli seconds
 
+TpUartDataLinkLayer commondlLayer;
+
 void TpUartDataLinkLayer::loop()
 {
 
@@ -95,10 +97,11 @@ void TpUartDataLinkLayer::loop()
     if (!_enabled)
         return;
 
+
     switch (_loopState)
     {
         case IDLE:
-            if (_platform.uartAvailable())
+            if (platform.uartAvailable())
             {
                 _loopState = RX_FIRST_BYTE;
             }
@@ -120,7 +123,7 @@ void TpUartDataLinkLayer::loop()
             }
             break;
         case RX_FIRST_BYTE:
-            rxByte = _platform.readUart();
+            rxByte = platform.readUart();
             _lastByteRxTime = millis();
             _RxByteCnt = 0;
             _xorSum = 0;
@@ -190,7 +193,7 @@ void TpUartDataLinkLayer::loop()
                 print("got U_SYSTEM_STAT_IND: 0x");
                 while (true)
                 {
-                    int tmp = _platform.readUart();
+                    int tmp = platform.readUart();
                     if (tmp < 0)
                         continue;
 
@@ -215,105 +218,108 @@ void TpUartDataLinkLayer::loop()
                 println("Timeout during RX_L_DATA");
                 break;
             }
-            if (!_platform.uartAvailable())
-                break;
-            _lastByteRxTime = millis();
-            rxByte = _platform.readUart();
+            while (platform.uartAvailable() && _loopState == RX_L_DATA){
 
-            if (_RxByteCnt == MAX_KNX_TELEGRAM_SIZE)
-            {
-                _loopState = IDLE;
-                println("invalid telegram size");
-            }
-            else
-            {
-                buffer[_RxByteCnt++] = rxByte;
-            }
+				_lastByteRxTime = millis();
+				rxByte = platform.readUart();
 
-            if (_RxByteCnt == 7)
-            {
-                //Destination Address + payload available
-                _xorSum ^= rxByte;
-                //check if echo
-                _isEcho = false;
-                if(_sendBuffer != NULL)
-                {
-                    if (!((buffer[0] ^ _sendBuffer[0]) & ~0x20) && !memcmp(buffer + _convert + 1, _sendBuffer + 1, 5)) //ignore repeated bit of control byte
-                    {
-                        _isEcho = true;
-                    }
-                }
+				if (_RxByteCnt == MAX_KNX_TELEGRAM_SIZE)
+				{
+					_loopState = IDLE;
+					println("invalid telegram size");
+				}
+				else
+				{
+					buffer[_RxByteCnt++] = rxByte;
+				}
 
-                //convert into Extended.ind
-                if (_convert)
-                {
-                    uint8_t payloadLength = buffer[6] & 0x0F;
-                    buffer[1] = buffer[6] & 0xF0;
-                    buffer[6] = payloadLength;
-                }
+				if (_RxByteCnt == 7)
+				{
+					//Destination Address + payload available
+					_xorSum ^= rxByte;
+					//check if echo
+					if (!((buffer[0] ^ _sendBuffer[0]) & ~0x20) && !memcmp(buffer + _convert + 1, _sendBuffer + 1, 5))
+					{ //ignore repeated bit of control byte
+						_isEcho = true;
+					}
+					else
+					{
+						_isEcho = false;
+					}
 
-                if (!_isEcho)
-                {
-                    uint8_t c = 0x10;
-                    //ceck if individual or group address
-                    if ((buffer[6] & 0x80) == 0)
-                    {
-                        //individual
-                        if (_deviceObject.induvidualAddress() == getWord(buffer + 4))
-                        {
-                            c |= 0x01;
-                        }
-                    }
-                    else
-                    {
-                        //group
-                        if (_groupAddressTable.contains(getWord(buffer + 4)) || getWord(buffer + 4) == 0)
-                        {
-                            c |= 0x01;
-                        }
-                    }
-                    _platform.writeUart(c);
-                }
-            }
-            else if (_RxByteCnt == buffer[6] + 7 + 2)
-            {
-                //complete Frame received, payloadLength+1 for TCPI +1 for CRC
-                if (rxByte == (uint8_t)(~_xorSum))
-                {
-                    //check if crc is correct
-                    if (_isEcho && _sendBuffer != NULL)
-                    {
-                        //check if it is realy an echo, rx_crc = tx_crc
-                        if (rxByte == _sendBuffer[_sendBufferLength - 1])
-                            _isEcho = true;
-                        else
-                            _isEcho = false;
-                    }
-                    if (_isEcho)
-                    {
-                        _loopState = RX_WAIT_DATA_CON;
-                    }
-                    else
-                    {
-                        frameBytesReceived(_receiveBuffer, _RxByteCnt + 2);
-                        _loopState = IDLE;
-                    }
-                }
-                else
-                {
-                    println("frame with invalid crc ignored");
-                    _loopState = IDLE;
-                }
-            }
-            else
-            {
-                _xorSum ^= rxByte;
+					//convert into Extended.ind
+					if (_convert)
+					{
+						uint8_t payloadLength = buffer[6] & 0x0F;
+						buffer[1] = buffer[6] & 0xF0;
+						buffer[6] = payloadLength;
+					}
+
+					if (!_isEcho)
+					{
+						uint8_t c = 0x10;
+						//ceck if individual or group address
+						if ((buffer[1] & 0x80) == 0)
+						{
+							//individual
+
+							if (containsIndividualAddress(getWord(buffer + 4)))
+							{
+								c |= 0x01;
+							}
+						}
+						else
+						{
+							//group
+
+							if (containsGroupAddress(getWord(buffer + 4)) || getWord(buffer + 4) == 0)
+							{
+								c |= 0x01;
+							}
+						}
+						platform.writeUart(c);
+					}
+				}
+				else if (_RxByteCnt == buffer[6] + 7 + 2)
+				{
+					//complete Frame received, payloadLength+1 for TCPI +1 for CRC
+					if (rxByte == (uint8_t)(~_xorSum))
+					{
+						//check if crc is correct
+						if (_isEcho && _sendBuffer != NULL)
+						{
+							//check if it is realy an echo, rx_crc = tx_crc
+							if (rxByte == _sendBuffer[_sendBufferLength - 1])
+								_isEcho = true;
+							else
+								_isEcho = false;
+						}
+						if (_isEcho)
+						{
+							_loopState = RX_WAIT_DATA_CON;
+						}
+						else
+						{
+							frameBytesReceived(_receiveBuffer, _RxByteCnt + 2);
+							_loopState = IDLE;
+						}
+					}
+					else
+					{
+						println("frame with invalid crc ignored");
+						_loopState = IDLE;
+					}
+				}
+				else
+				{
+					_xorSum ^= rxByte;
+				}
             }
             break;
         case RX_WAIT_DATA_CON:
-            if (!_platform.uartAvailable())
+            if (!platform.uartAvailable())
                 break;
-            rxByte = _platform.readUart();
+            rxByte = platform.readUart();
             _lastByteRxTime = millis();
             if ((rxByte & L_DATA_CON_MASK) == L_DATA_CON)
             {
@@ -361,23 +367,23 @@ void TpUartDataLinkLayer::loop()
     }
 }
 
-bool TpUartDataLinkLayer::sendFrame(CemiFrame& frame)
+bool TpUartDataLinkLayer::sendFrame(uint8_t instanceID, CemiFrame& frame)
 {
     if (!_enabled)
         return false;
 
-    addFrameTxQueue(frame);
+    addFrameTxQueue(instanceID, frame);
     return true;
 }
 
 bool TpUartDataLinkLayer::resetChip()
 {
     uint8_t cmd = U_RESET_REQ;
-    _platform.writeUart(cmd);
+    platform.writeUart(cmd);
     _waitConfirmStartTime = millis();
     while (true)
     {
-        int resp = _platform.readUart();
+        int resp = platform.readUart();
         if (resp == U_RESET_IND)
             return true;
         else if (millis() - _waitConfirmStartTime > RESET_TIMEOUT)
@@ -389,19 +395,17 @@ void TpUartDataLinkLayer::stopChip()
 {
 #ifdef NCN5120
     uint8_t cmd = U_STOP_MODE_REQ;
-    _platform.writeUart(cmd);
+    platform.writeUart(cmd);
     while (true)
     {
-        int resp = _platform.readUart();
+        int resp = platform.readUart();
         if (resp == U_STOP_MODE_IND)
             break;
     }
 #endif
 }
 
-TpUartDataLinkLayer::TpUartDataLinkLayer(DeviceObject& devObj, AddressTableObject& addrTab,
-                                         NetworkLayer& layer, Platform& platform)
-    : DataLinkLayer(devObj, addrTab, layer, platform)
+TpUartDataLinkLayer::TpUartDataLinkLayer()
 {
 }
 
@@ -417,19 +421,18 @@ void TpUartDataLinkLayer::dataConBytesReceived(uint8_t* buffer, uint16_t length,
 {
     //printHex("=>", buffer, length);
     CemiFrame frame(buffer, length);
-    dataConReceived(frame, success);
+    dataConReceived(_activeSendInstance,frame, success);
+    _activeSendInstance = NO_INSTANCE;
 }
 
 void TpUartDataLinkLayer::enabled(bool value)
 {
     if (value && !_enabled)
     {
-        _platform.setupUart();
-
+    	platform.setupUart();
         if (resetChip()){
             _enabled = true;
-            print("ownaddr ");
-            println(_deviceObject.induvidualAddress(), HEX);
+            print("TPUART enabled");
         }
         else{
         	_enabled = false;
@@ -442,7 +445,7 @@ void TpUartDataLinkLayer::enabled(bool value)
     {
         _enabled = false;
         stopChip();
-        _platform.closeUart();
+        platform.closeUart();
         return;
     }
 }
@@ -466,7 +469,7 @@ bool TpUartDataLinkLayer::sendSingleFrameByte()
         {
             _oldIdx = idx;
             cmd[0] = U_L_DATA_OFFSET_REQ | idx;
-            _platform.writeUart(cmd, 1);
+            platform.writeUart(cmd, 1);
         }
 
         if (_TxByteCnt != _sendBufferLength - 1)
@@ -476,7 +479,7 @@ bool TpUartDataLinkLayer::sendSingleFrameByte()
 
         cmd[1] = _sendBuffer[_TxByteCnt];
 
-        _platform.writeUart(cmd, 2);
+        platform.writeUart(cmd, 2);
         _TxByteCnt++;
         return true;
     }
@@ -487,12 +490,13 @@ bool TpUartDataLinkLayer::sendSingleFrameByte()
     }
 }
 
-void TpUartDataLinkLayer::addFrameTxQueue(CemiFrame& frame)
+void TpUartDataLinkLayer::addFrameTxQueue(uint8_t instanceID, CemiFrame& frame)
 {
 
     _tx_queue_frame_t* tx_frame = new _tx_queue_frame_t;
     tx_frame->length = frame.telegramLengthtTP();
     tx_frame->data = new uint8_t[tx_frame->length];
+    tx_frame->instanceID = instanceID;
     tx_frame->next = NULL;
     frame.fillTelegramTP(tx_frame->data);
 
@@ -525,6 +529,7 @@ void TpUartDataLinkLayer::loadNextTxFrame()
     _tx_queue_frame_t* tx_frame = _tx_queue.front;
     _sendBuffer = tx_frame->data;
     _sendBufferLength = tx_frame->length;
+    _activeSendInstance = tx_frame->instanceID;
     _tx_queue.front = tx_frame->next;
 
     if (_tx_queue.front == NULL)

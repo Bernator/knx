@@ -1,8 +1,8 @@
 #include "application_program_object.h"
 #include "bits.h"
+#include "globalPlatform.h"
 
-ApplicationProgramObject::ApplicationProgramObject(Platform& platform)
-    : TableObject(platform)
+ApplicationProgramObject::ApplicationProgramObject()
 {
 
 }
@@ -62,19 +62,19 @@ uint8_t * ApplicationProgramObject::data(uint32_t addr)
 uint8_t ApplicationProgramObject::getByte(uint32_t addr)
 {
     uint8_t* paddr = TableObject::data()+addr;
-    return _platform.popNVMemoryByte(&paddr);
+    return platform.popNVMemoryByte(&paddr);
 }
 
 uint16_t ApplicationProgramObject::getWord(uint32_t addr)
 {
     uint8_t* paddr = TableObject::data()+addr;
-    return _platform.popNVMemoryWord(&paddr);
+    return platform.popNVMemoryWord(&paddr);
 }
 
 uint32_t ApplicationProgramObject::getInt(uint32_t addr)
 {
     uint8_t* paddr = TableObject::data()+addr;
-    return _platform.popNVMemoryInt(&paddr);
+    return platform.popNVMemoryInt(&paddr);
 }
 
 uint32_t ApplicationProgramObject::size(){
@@ -88,13 +88,13 @@ void ApplicationProgramObject::save()
         return ;
 
     uint8_t* addr =TableObject::data() - sizeof(_programVersion) - TableObject::sizeMetadata();
-    _platform.pushNVMemoryArray(_programVersion, &addr, sizeof(_programVersion));
+    platform.pushNVMemoryArray(_programVersion, &addr, sizeof(_programVersion));
     TableObject::save();
 }
 
 void ApplicationProgramObject::restore(uint8_t* startAddr)
 {
-    _platform.popNVMemoryArray(_programVersion, &startAddr, sizeof(_programVersion));
+    platform.popNVMemoryArray(_programVersion, &startAddr, sizeof(_programVersion));
     TableObject::restore(startAddr);
 }
 

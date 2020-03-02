@@ -3,7 +3,7 @@
 #include "knx/bits.h"
 
 #ifdef ARDUINO_ARCH_SAMD
-#include "samd_platform.h"
+//#include "samd_platform.h"
 #include "knx/bau07B0.h"
 #elif ARDUINO_ARCH_ESP8266
 #include "esp_platform.h"
@@ -18,15 +18,18 @@
 #define LED_BUILTIN 0
 #endif
 
+#include "globalPlatform.h"
+
 void buttonUp();
 typedef void (*saveRestoreCallback)(uint8_t* buffer, uint32_t* size);
 
-template <class P, class B> class KnxFacade : private SaveRestore
+template <class B>
+class KnxFacade : private SaveRestore
 {
     friend void buttonUp();
 
   public:
-    KnxFacade() : _platformPtr(new P()), _bauPtr(new B(*_platformPtr)), _bau(*_bauPtr)
+    KnxFacade(uint8_t instanceID) : _bauPtr(new B(instanceID)), _bau(*_bauPtr)
     {
         manufacturerId(0xfa);
         _bau.addSaveRestore(this);
@@ -37,8 +40,6 @@ template <class P, class B> class KnxFacade : private SaveRestore
         if (_bauPtr)
             delete _bauPtr;
 
-        if (_platformPtr)
-            delete _platformPtr;
     }
 
     KnxFacade(B& bau) : _bau(bau)
@@ -47,10 +48,6 @@ template <class P, class B> class KnxFacade : private SaveRestore
         _bau.addSaveRestore(this);
     }
 
-    P& platform()
-    {
-        return *_platformPtr;
-    }
 
     B& bau()
     {
@@ -267,7 +264,6 @@ template <class P, class B> class KnxFacade : private SaveRestore
     }
 
   private:
-    P* _platformPtr = 0;
     B* _bauPtr = 0;
     B& _bau;
     uint32_t _ledPinActiveOn = LOW;
@@ -297,16 +293,16 @@ template <class P, class B> class KnxFacade : private SaveRestore
             uint32_t size=0;
             _saveCallback(buffer, &size);
             if(buffer != NULL){
-                _platformPtr->freeNVMemory(_ID);
-                uint8_t* addr = _platformPtr->allocNVMemory(size+4, _ID);
+                platform.freeNVMemory(_ID);
+                uint8_t* addr = platform.allocNVMemory(size+4, _ID);
 
                 //write size
-                _platformPtr->pushNVMemoryByte(((uint8_t*)&size)[0], &addr);
-                _platformPtr->pushNVMemoryByte(((uint8_t*)&size)[1], &addr);
-                _platformPtr->pushNVMemoryByte(((uint8_t*)&size)[2], &addr);
-                _platformPtr->pushNVMemoryByte(((uint8_t*)&size)[3], &addr);
+                platform.pushNVMemoryByte(((uint8_t*)&size)[0], &addr);
+                platform.pushNVMemoryByte(((uint8_t*)&size)[1], &addr);
+                platform.pushNVMemoryByte(((uint8_t*)&size)[2], &addr);
+                platform.pushNVMemoryByte(((uint8_t*)&size)[3], &addr);
                 for(uint32_t i=0;i<size;i++){
-                    _platformPtr->pushNVMemoryByte(buffer[i], &addr);
+                    platform.pushNVMemoryByte(buffer[i], &addr);
                 }
                 delete[] buffer;
             }
@@ -319,10 +315,10 @@ template <class P, class B> class KnxFacade : private SaveRestore
         uint32_t size=0;
 
         //read size
-        ((uint8_t*)&size)[0] = _platformPtr->popNVMemoryByte(&startAddr);
-        ((uint8_t*)&size)[1] = _platformPtr->popNVMemoryByte(&startAddr);
-        ((uint8_t*)&size)[2] = _platformPtr->popNVMemoryByte(&startAddr);
-        ((uint8_t*)&size)[3] = _platformPtr->popNVMemoryByte(&startAddr);
+        ((uint8_t*)&size)[0] = platform.popNVMemoryByte(&startAddr);
+        ((uint8_t*)&size)[1] = platform.popNVMemoryByte(&startAddr);
+        ((uint8_t*)&size)[2] = platform.popNVMemoryByte(&startAddr);
+        ((uint8_t*)&size)[3] = platform.popNVMemoryByte(&startAddr);
 
         if (_restoreCallback != 0)
             _restoreCallback(startAddr, &size);
@@ -331,7 +327,7 @@ template <class P, class B> class KnxFacade : private SaveRestore
 };
 
 #ifdef ARDUINO_ARCH_SAMD
-extern KnxFacade<SamdPlatform, Bau07B0> knx;
+//extern KnxFacade<SamdPlatform, Bau07B0> knx;
 #elif ARDUINO_ARCH_ESP8266
 extern KnxFacade<EspPlatform, Bau57B0> knx;
 #elif ARDUINO_ARCH_ESP32

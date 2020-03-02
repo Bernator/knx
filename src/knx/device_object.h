@@ -1,12 +1,12 @@
 #pragma once
 
 #include "interface_object.h"
-#include "platform.h"
+
 
 class DeviceObject: public InterfaceObject
 {
 public:
-    DeviceObject(Platform& platform);
+    DeviceObject();
     void readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data);
     void writeProperty(PropertyID id, uint8_t start, uint8_t* data, uint8_t count);
     uint8_t propertySize(PropertyID id);
@@ -51,5 +51,4 @@ private:
     char _orderNumber[10];
     uint8_t _hardwareType[6];
     uint16_t _version = 0;
-    Platform& _platform;
 };

@@ -1,9 +1,11 @@
 #include "memory.h"
+#include "globalPlatform.h"
 
 #define BASE_ID     0xC0DE0000
 
-Memory::Memory(Platform & platform): _platform(platform)
+Memory::Memory(uint8_t instanceID)
 {
+	 _instanceID = instanceID;
 }
 
 void Memory::memoryModified()
@@ -25,7 +27,7 @@ void Memory::readMemory()
             pointerAccess = true;
         else
             pointerAccess = false;
-        uint8_t* data = _platform.reloadNVMemory(BASE_ID+i, pointerAccess);
+        uint8_t* data = platform.reloadNVMemory(((BASE_ID|(_instanceID<<8)) + i), pointerAccess);
         if(data == NULL)
             continue;
 
@@ -39,7 +41,7 @@ void Memory::writeMemory()
         _saveRestores[i]->save();
     }
 
-    _platform.finishNVMemory();
+    platform.finishNVMemory();
     _modified = false;
 }
 
@@ -48,7 +50,7 @@ void Memory::addSaveRestore(SaveRestore * obj)
     if (_saveCount >= MAXSAVE - 1)
         return;
 
-    obj->memoryID(BASE_ID + _saveCount);
+    obj->memoryID((BASE_ID|(_instanceID<<8)) + _saveCount);
     _saveRestores[_saveCount] = obj;
     _saveCount += 1;
 }

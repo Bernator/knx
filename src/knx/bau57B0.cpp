@@ -4,8 +4,8 @@
 
 using namespace std;
 
-Bau57B0::Bau57B0(Platform& platform)
-    : BauSystemB(platform),
+Bau57B0::Bau57B0(Platform& platform, uint8_t instanceID)
+    : BauSystemB(platform,instanceID),
       _ipParameters(_deviceObj, platform),
       _dlLayer(_deviceObj, _addrTable, _ipParameters, _netLayer, _platform)
 {

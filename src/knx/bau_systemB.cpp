@@ -1,11 +1,11 @@
 #include "bau_systemB.h"
 #include <string.h>
 #include <stdio.h>
+#include "globalPlatform.h"
 
-BauSystemB::BauSystemB(Platform& platform): _memory(platform), _addrTable(platform),
-    _assocTable(platform), _groupObjTable(platform), _appProgram(platform),
-    _platform(platform), _appLayer(_assocTable, *this),
-    _transLayer(_appLayer, _addrTable), _netLayer(_transLayer), _deviceObj(platform)
+BauSystemB::BauSystemB(uint8_t instanceID): _deviceObj(), _memory(instanceID), _addrTable(),
+    _assocTable(), _groupObjTable(), _appProgram(),_appLayer(_assocTable, *this),
+    _transLayer(_appLayer, _addrTable), _netLayer(_transLayer,instanceID)
 {
     _appLayer.transportLayer(_transLayer);
     _transLayer.networkLayer(_netLayer);
@@ -14,6 +14,7 @@ BauSystemB::BauSystemB(Platform& platform): _memory(platform), _addrTable(platfo
     _memory.addSaveRestore(&_groupObjTable);
     _memory.addSaveRestore(&_deviceObj);
     _memory.addSaveRestore(&_appProgram);
+    _instanceID = instanceID;
 }
 
 void BauSystemB::loop()
@@ -35,40 +36,22 @@ void BauSystemB::enabled(bool value)
 
 void BauSystemB::sendNextGroupTelegram()
 {
-    static uint16_t startIdx = 1;
-
-    GroupObjectTableObject& table = _groupObjTable;
-    uint16_t objCount = table.entryCount();
-
-    for (uint16_t asap = startIdx; asap <= objCount; asap++)
-    {
-        GroupObject& go = table.get(asap);
-
-        ComFlag flag = go.commFlag();
-        if (flag != ReadRequest && flag != WriteRequest)
-            continue;
-
-        if (!go.communicationEnable())
-            continue;
-
-        if (flag == WriteRequest && go.transmitEnable())
+    GroupObject* go = _groupObjTable.getObjectToSend();
+	if(go != nullptr){
+        ComFlag flag = go->commFlag();
+        if (flag == WriteRequest && go->transmitEnable())
         {
-            uint8_t* data = go.valueRef();
-            _appLayer.groupValueWriteRequest(AckRequested, asap, go.priority(), NetworkLayerParameter, data,
-                go.sizeInTelegram());
+            uint8_t* data = go->valueRef();
+            _appLayer.groupValueWriteRequest(AckRequested, go->asap(), go->priority(), NetworkLayerParameter, data,
+                go->sizeInTelegram());
         }
         else if (flag == ReadRequest)
         {
-            _appLayer.groupValueReadRequest(AckRequested, asap, go.priority(), NetworkLayerParameter);
+            _appLayer.groupValueReadRequest(AckRequested, go->asap(), go->priority(), NetworkLayerParameter);
         }
 
-        go.commFlag(Transmitting);
-
-        startIdx = asap + 1;
-        return;
-    }
-
-    startIdx = 1;
+        go->commFlag(Transmitting);
+	}
 }
 
 void BauSystemB::updateGroupObject(GroupObject & go, uint8_t * data, uint8_t length)
@@ -85,7 +68,7 @@ void BauSystemB::updateGroupObject(GroupObject & go, uint8_t * data, uint8_t len
     go.commFlag(Updated);
     GroupObjectUpdatedHandler handler = go.callback();
     if (handler)
-        handler(go);
+        handler(_instanceID, go);
 }
 
 void BauSystemB::readMemory()
@@ -141,7 +124,7 @@ void BauSystemB::memoryWriteIndication(Priority priority, HopCountType hopType, 
 {
 
     for(uint8_t i=0;i<number;i++)
-        _platform.writeNVMemory(_platform.referenceNVMemory() + memoryAddress+i, data[i]);
+        platform.writeNVMemory(platform.referenceNVMemory() + memoryAddress+i, data[i]);
 
     _memory.memoryModified();
 
@@ -154,7 +137,7 @@ void BauSystemB::memoryReadIndication(Priority priority, HopCountType hopType, u
 {
     uint8_t* buffer = new uint8_t[number];
     for(uint8_t i=0;i<number;i++)
-        buffer[i] = _platform.readNVMemory(_platform.referenceNVMemory() + memoryAddress+i);
+        buffer[i] = platform.readNVMemory(platform.referenceNVMemory() + memoryAddress+i);
 
     _appLayer.memoryReadResponse(AckRequested, priority, hopType, asap, number, memoryAddress,buffer);
     delete[] buffer;
@@ -164,7 +147,7 @@ void BauSystemB::restartRequestIndication(Priority priority, HopCountType hopTyp
 {
     // Flush the EEPROM before resetting
     _memory.writeMemory();
-    _platform.restart();
+    platform.restart();
 }
 
 void BauSystemB::authorizeIndication(Priority priority, HopCountType hopType, uint16_t asap, uint32_t key)
@@ -176,7 +159,7 @@ void BauSystemB::userMemoryReadIndication(Priority priority, HopCountType hopTyp
 {
     uint8_t* buffer = new uint8_t[number];
     for(uint8_t i=0;i<number;i++)
-        buffer[i] = _platform.readNVMemory(_platform.referenceNVMemory() + memoryAddress+i);
+        buffer[i] = platform.readNVMemory(platform.referenceNVMemory() + memoryAddress+i);
     _appLayer.userMemoryReadResponse(AckRequested, priority, hopType, asap, number, memoryAddress,buffer);
     delete[] buffer;
 }
@@ -184,7 +167,7 @@ void BauSystemB::userMemoryReadIndication(Priority priority, HopCountType hopTyp
 void BauSystemB::userMemoryWriteIndication(Priority priority, HopCountType hopType, uint16_t asap, uint8_t number, uint32_t memoryAddress, uint8_t* data)
 {
     for(uint8_t i=0;i<number;i++)
-        _platform.writeNVMemory(_platform.referenceNVMemory() + memoryAddress+i, data[i]);
+        platform.writeNVMemory(platform.referenceNVMemory() + memoryAddress+i, data[i]);
 
     _memory.memoryModified();
     if (_deviceObj.verifyMode())

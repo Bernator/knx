@@ -157,11 +157,15 @@ void GroupObject::commFlag(ComFlag value)
 void GroupObject::requestObjectRead()
 {
     _commFlag = ReadRequest;
+    if(communicationEnable())
+    	_table->sendObject(this);
 }
 
 void GroupObject::objectWritten()
 {
     _commFlag = WriteRequest;
+    if(communicationEnable())
+    	_table->sendObject(this);
 }
 
 size_t GroupObject::valueSize()
