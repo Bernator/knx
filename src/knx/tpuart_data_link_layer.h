@@ -2,18 +2,17 @@
 
 #include <stdint.h>
 #include "data_link_layer.h"
+#include "Arduino.h"
 
 #define MAX_KNX_TELEGRAM_SIZE 263
 
+
+
 class TpUartDataLinkLayer : public DataLinkLayer
 {
-    using DataLinkLayer::_deviceObject;
-    using DataLinkLayer::_groupAddressTable;
-    using DataLinkLayer::_platform;
 
   public:
-    TpUartDataLinkLayer(DeviceObject& devObj, AddressTableObject& addrTab, NetworkLayer& layer,
-                        Platform& platform);
+    TpUartDataLinkLayer();
 
     void loop();
     void enabled(bool value);
@@ -35,11 +34,13 @@ class TpUartDataLinkLayer : public DataLinkLayer
     uint8_t _xorSum = 0;
     uint32_t _lastByteRxTime;
     uint32_t _waitConfirmStartTime;
+    uint8_t _activeSendInstance = NO_INSTANCE;
 
     struct _tx_queue_frame_t
     {
         uint8_t* data;
         uint16_t length;
+        uint8_t instanceID;
         _tx_queue_frame_t* next;
     };
 
@@ -49,13 +50,15 @@ class TpUartDataLinkLayer : public DataLinkLayer
         _tx_queue_frame_t* back = NULL;
     } _tx_queue;
 
-    void addFrameTxQueue(CemiFrame& frame);
+    void addFrameTxQueue(uint8_t instanceID, CemiFrame& frame);
     bool isTxQueueEmpty();
     void loadNextTxFrame();
     bool sendSingleFrameByte();
-    bool sendFrame(CemiFrame& frame);
+    bool sendFrame(uint8_t instanceID, CemiFrame& frame);
     void frameBytesReceived(uint8_t* buffer, uint16_t length);
     void dataConBytesReceived(uint8_t* buffer, uint16_t length, bool success);
     bool resetChip();
     void stopChip();
 };
+
+extern TpUartDataLinkLayer commondlLayer;

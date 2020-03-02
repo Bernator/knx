@@ -23,7 +23,7 @@ class GroupObject;
 #include <functional>
 typedef std::function<void(GroupObject&)> GroupObjectUpdatedHandler;
 #else
-typedef void (*GroupObjectUpdatedHandler)(GroupObject& go);
+typedef void (*GroupObjectUpdatedHandler)(uint8_t& instanceID, GroupObject& go);
 #endif
 
 /**

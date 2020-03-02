@@ -4,9 +4,9 @@
 #include "data_link_layer.h"
 #include "bits.h"
 
-NetworkLayer::NetworkLayer(TransportLayer& layer): _transportLayer(layer)
+NetworkLayer::NetworkLayer(TransportLayer& layer,uint8_t instanceID): _transportLayer(layer)
 {
-
+	_instanceID = instanceID;
 }
 
 void NetworkLayer::dataLinkLayer(DataLinkLayer& layer)
@@ -99,7 +99,7 @@ void NetworkLayer::sendDataRequest(TPDU &tpdu, HopCountType hopType, AckType ack
 
     FrameFormat frameFormat = npdu.octetCount() > 15 ? ExtendedFrame : StandardFrame;
 
-    _dataLinkLayer->dataRequest(ack, addrType, destination, frameFormat, priority, npdu);
+    _dataLinkLayer->dataRequest(_instanceID, ack, addrType, destination, frameFormat, priority, npdu);
 }
 
 void NetworkLayer::dataGroupRequest(AckType ack, uint16_t destination, HopCountType hopType, Priority priority, TPDU& tpdu)
@@ -123,5 +123,5 @@ void NetworkLayer::dataSystemBroadcastRequest(AckType ack, HopCountType hopType,
 
     FrameFormat frameFormat = npdu.octetCount() > 15 ? ExtendedFrame : StandardFrame;
 
-    _dataLinkLayer->systemBroadcastRequest(ack, frameFormat, priority, npdu);
+    _dataLinkLayer->systemBroadcastRequest(_instanceID, ack, frameFormat, priority, npdu);
 }

@@ -5,7 +5,7 @@
 class AssociationTableObject : public TableObject
 {
   public:
-    AssociationTableObject(Platform& platform);
+    AssociationTableObject();
     void readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data);
 
     void restore(uint8_t* startAddr);

@@ -17,7 +17,7 @@ class AddressTableObject : public TableObject
      * 
      * @param platform This parameter is only passed to the custructor of TableObject an not used by this class.
      */
-    AddressTableObject(Platform& platform);
+    AddressTableObject();
     void readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data);
     void restore(uint8_t* startAddr);
     /**

@@ -1,10 +1,11 @@
 #include <cstring>
 #include "device_object.h"
 #include "bits.h"
+#include "globalplatform.h"
 
 #define METADATA_SIZE     (sizeof(_deviceControl)+sizeof(_routingCount)+sizeof(_ownAddress))
 
-DeviceObject::DeviceObject(Platform& platform): _platform(platform)
+DeviceObject::DeviceObject()
 {
     for(int i = 0; i < 10; ++i)
         _orderNumber[i] = 0;
@@ -121,20 +122,20 @@ uint32_t DeviceObject::size(){
 
 void DeviceObject::save()
 {
-    _platform.freeNVMemory(_ID);
-    uint8_t* addr = _platform.allocNVMemory(METADATA_SIZE, _ID);
+    platform.freeNVMemory(_ID);
+    uint8_t* addr = platform.allocNVMemory(METADATA_SIZE, _ID);
 
-    _platform.pushNVMemoryByte(_deviceControl, &addr);
-    _platform.pushNVMemoryByte(_routingCount, &addr);
-    _platform.pushNVMemoryWord(_ownAddress, &addr);
+    platform.pushNVMemoryByte(_deviceControl, &addr);
+    platform.pushNVMemoryByte(_routingCount, &addr);
+    platform.pushNVMemoryWord(_ownAddress, &addr);
 }
 
 void DeviceObject::restore(uint8_t* startAddr)
 {
     uint8_t* addr = startAddr;
-    _deviceControl = _platform.popNVMemoryByte(&addr);
-    _routingCount = _platform.popNVMemoryByte(&addr);
-    _ownAddress = _platform.popNVMemoryWord(&addr);
+    _deviceControl = platform.popNVMemoryByte(&addr);
+    _routingCount = platform.popNVMemoryByte(&addr);
+    _ownAddress = platform.popNVMemoryWord(&addr);
     _prgMode = 0;
 }
 

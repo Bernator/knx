@@ -1,5 +1,4 @@
 #pragma once
-
 #include "bau.h"
 #include "device_object.h"
 #include "address_table_object.h"
@@ -10,13 +9,12 @@
 #include "transport_layer.h"
 #include "network_layer.h"
 #include "tpuart_data_link_layer.h"
-#include "platform.h"
 #include "memory.h"
 
 class BauSystemB : protected BusAccessUnit
 {
   public:
-    BauSystemB(Platform& platform);
+    BauSystemB(uint8_t instanceID);
     virtual void loop();
     DeviceObject& deviceObject();
     GroupObjectTableObject& groupObjectTable();
@@ -69,9 +67,9 @@ class BauSystemB : protected BusAccessUnit
     AssociationTableObject _assocTable;
     GroupObjectTableObject _groupObjTable;
     ApplicationProgramObject _appProgram;
-    Platform& _platform;
     ApplicationLayer _appLayer;
     TransportLayer _transLayer;
     NetworkLayer _netLayer;
     bool _configured = true;
+    uint8_t _instanceID = 255;
 };

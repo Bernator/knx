@@ -4,14 +4,15 @@
 #include "group_object.h"
 #include "bits.h"
 
-GroupObjectTableObject::GroupObjectTableObject(Platform& platform)
-    : TableObject(platform)
+GroupObjectTableObject::GroupObjectTableObject()
 {
+
 }
 
 GroupObjectTableObject::~GroupObjectTableObject()
 {
     freeGroupObjects();
+    while(getObjectToSend() != nullptr){}
 }
 
 void GroupObjectTableObject::readProperty(PropertyID id, uint32_t start, uint32_t& count, uint8_t* data)
@@ -51,24 +52,23 @@ void GroupObjectTableObject::restore(uint8_t* startAddr)
 
 GroupObject& GroupObjectTableObject::nextUpdatedObject(bool& valid)
 {
-    static uint16_t startIdx = 1;
 
     uint16_t objCount = entryCount();
 
-    for (uint16_t asap = startIdx; asap <= objCount; asap++)
+    for (uint16_t asap = _startIdx; asap <= objCount; asap++)
     {
         GroupObject& go = get(asap);
 
         if (go.commFlag() == Updated)
         {
             go.commFlag(Ok);
-            startIdx = asap + 1;
+            _startIdx = asap + 1;
             valid = true;
             return go;
         }
     }
 
-    startIdx = 1;
+    _startIdx = 1;
     valid = false;
     return get(1);
 }
@@ -151,4 +151,41 @@ void GroupObjectTableObject::freeGroupObjects()
     
     _groupObjectCount = 0;
     _groupObjects = 0;
+}
+
+void GroupObjectTableObject::sendObject(GroupObject* obj)
+{
+	queue_entry_t* entry = new queue_entry_t;
+	entry->_groupObject = obj;
+	entry->next = nullptr;
+
+    if (_send_queue.back == nullptr)
+    {
+    	_send_queue.front = _send_queue.back = entry;
+    }
+    else
+    {
+    	_send_queue.back->next = entry;
+    	_send_queue.back = entry;
+    }
+}
+
+GroupObject* GroupObjectTableObject::getObjectToSend()
+{
+    if (_send_queue.front == nullptr)
+    {
+        return nullptr;
+    }
+    queue_entry_t* entry = _send_queue.front;
+
+    _send_queue.front = entry->next;
+
+    if (_send_queue.front == nullptr)
+    {
+    	_send_queue.back = nullptr;
+    }
+
+    GroupObject* obj = entry->_groupObject;
+    delete entry;
+    return obj;
 }
