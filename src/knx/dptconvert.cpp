@@ -550,8 +550,8 @@ int busValueToDate(const uint8_t* payload, size_t payload_length, const Dpt& dat
     struct tm tmp = {0};
     year += year >= 90 ? 1900 : 2000;
     tmp.tm_mday = day;
-    tmp.tm_year = year;
-    tmp.tm_mon = month;
+    tmp.tm_year = year-1900;	//year since 1900
+    tmp.tm_mon = month-1;		//0-11
     value = tmp;
     return true;
 }
@@ -734,8 +734,8 @@ int busValueToDateTime(const uint8_t* payload, size_t payload_length, const Dpt&
                 tmp.tm_min = minutes;
                 tmp.tm_hour = hours;
                 tmp.tm_mday = day;
-                tmp.tm_mon = month;
-                tmp.tm_year = year;
+                tmp.tm_mon = month-1;			//0-11
+                tmp.tm_year = year-1900;		//year since 1900
                 value = tmp;
                 return true;
             }
@@ -1195,11 +1195,11 @@ int valueToBusValueTime(const KNXValue& value, uint8_t* payload, size_t payload_
 int valueToBusValueDate(const KNXValue& value, uint8_t* payload, size_t payload_length, const Dpt& datatype)
 {
     struct tm tmp = value;
-    if (tmp.tm_year < 1990 || tmp.tm_year > 2089)
+    if (tmp.tm_year < 90 || tmp.tm_year > 189)
         return false;
 
     unsigned8ToPayload(payload, payload_length, 0, tmp.tm_mday, 0x1F);
-    unsigned8ToPayload(payload, payload_length, 1, tmp.tm_mon, 0x0F);
+    unsigned8ToPayload(payload, payload_length, 1, tmp.tm_mon+1, 0x0F);
     unsigned8ToPayload(payload, payload_length, 2, tmp.tm_year % 100, 0x7F);
     return true;
 }
@@ -1374,8 +1374,8 @@ int valueToBusValueDateTime(const KNXValue& value, uint8_t* payload, size_t payl
             struct tm tmp = value;
             bitToPayload(payload, payload_length, 51, false);
             bitToPayload(payload, payload_length, 52, false);
-            unsigned8ToPayload(payload, payload_length, 0, tmp.tm_year - 1900, 0xFF);
-            unsigned8ToPayload(payload, payload_length, 1, tmp.tm_mon, 0x0F);
+            unsigned8ToPayload(payload, payload_length, 0, tmp.tm_year, 0xFF);
+            unsigned8ToPayload(payload, payload_length, 1, tmp.tm_mon+1, 0x0F);
             unsigned8ToPayload(payload, payload_length, 2, tmp.tm_mday, 0x1F);
 
             bitToPayload(payload, payload_length, 54, false);
